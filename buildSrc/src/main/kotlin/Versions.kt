@@ -1,0 +1,10 @@
+object Versions {
+    const val kotlin = "1.4.10"
+    const val ktor = "1.4.3"
+    const val logback = "1.2.1"
+    const val chronicleMap = "3.20.83"
+    const val rocksDB = "6.6.4"
+    const val guava = "30.0-jre"
+    const val junit = "5.3.1"
+    const val awaitility = "4.0.2"
+}

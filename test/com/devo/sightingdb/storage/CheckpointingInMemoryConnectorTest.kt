@@ -1,0 +1,89 @@
+package com.devo.sightingdb.storage
+
+import com.natpryce.hamkrest.assertion.assertThat
+import com.natpryce.hamkrest.equalTo
+import com.typesafe.config.ConfigFactory
+import kotlinx.serialization.ExperimentalSerializationApi
+import org.awaitility.Awaitility.await
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
+
+class CheckpointingInMemoryConnectorTest {
+
+    private lateinit var connector: CheckpointingInMemoryConnector
+    private lateinit var tempPath: Path
+
+    @ExperimentalSerializationApi
+    @BeforeEach
+    fun setUp() {
+        tempPath = Files.createTempDirectory("checkpointing-in-memory")
+        val config = ConfigFactory.parseMap(
+            mapOf(
+                "path" to tempPath.toString(),
+                "checkpointInterval" to "1 second"
+            )
+        )
+        connector = CheckpointingInMemoryConnector().build(config) as CheckpointingInMemoryConnector
+    }
+
+    @AfterEach
+    fun tearDown() {
+        connector.close()
+    }
+
+    @Test
+    fun `Should write sighting`() {
+        ConnectorTestSuite.writeSighting(connector)
+    }
+
+    @Test
+    fun `Should read sighting`() {
+        ConnectorTestSuite.readSighting(connector)
+    }
+
+    @Test
+    fun `Should read namespace`() {
+        ConnectorTestSuite.readNamespace(connector)
+    }
+
+    @Test
+    fun `Should insert into _shadow`() {
+        ConnectorTestSuite.insertShadow(connector)
+    }
+
+    @Test
+    fun `Should insert consensus into _all`() {
+        ConnectorTestSuite.insertConsensus(connector)
+    }
+
+    @Test
+    fun `Should update consensus`() {
+        ConnectorTestSuite.updateConsensus(connector)
+    }
+
+    @Test
+    fun `Should retrieve consensus on get`() {
+        ConnectorTestSuite.retrieveConsensus(connector)
+    }
+
+    @ExperimentalSerializationApi
+    @Test
+    fun `Should back up and restore from disk`() {
+        val path = Paths.get(tempPath.toString(), "attribute-cache.0")
+        connector.observe("namespace", "value")
+        var map: Map<String, Namespace> = emptyMap()
+        await().until {
+            try {
+                map = connector.restore(path)
+            } catch (e: Exception) {
+                // ignore
+            }
+            path.toFile().exists() && map.isNotEmpty()
+        }
+        assertThat(map, equalTo(connector.map()))
+    }
+}
