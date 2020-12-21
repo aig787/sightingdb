@@ -1,5 +1,6 @@
 object Versions {
-    const val kotlin = "1.4.10"
+    const val kotlin = "1.4.21"
+    const val dokka = "1.4.10.2"
     const val ktor = "1.4.3"
     const val logback = "1.2.1"
     const val chronicleMap = "3.20.83"

@@ -17,7 +17,7 @@
     </appender>
 
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>/var/log/devo/app.log</file>
+        <file>/var/log/devo/sightingdb/app.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <!-- rollover daily -->
             <fileNamePattern>app-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
@@ -32,7 +32,7 @@
     </appender>
 
     <appender name="COMMIT-FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>/var/log/devo/commit.log</file>
+        <file>/var/log/devo/sightingdb/commit.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <!-- rollover daily -->
             <fileNamePattern>commit-%d{yyyy-MM-dd}.%i.log</fileNamePattern>

@@ -6,7 +6,7 @@ plugins {
     id("application")
     id("org.sonarqube") version "3.0"
     id("io.gitlab.arturbosch.detekt") version "1.12.0"
-    id("org.jetbrains.dokka") version Versions.kotlin
+    id("org.jetbrains.dokka") version Versions.dokka
     id("io.wusa.semver-git-plugin") version "2.3.0"
     id("com.adarshr.test-logger") version "2.1.1"
 }
@@ -50,7 +50,8 @@ semver {
     }
 }
 
-val javaVersion = JavaVersion.VERSION_1_8.toString()
+val sourceVersion = JavaVersion.VERSION_11
+val targetVersion = JavaVersion.VERSION_11
 
 kotlin.sourceSets["main"].kotlin.srcDirs("src")
 kotlin.sourceSets["test"].kotlin.srcDirs("test")
@@ -58,24 +59,34 @@ kotlin.sourceSets["test"].kotlin.srcDirs("test")
 sourceSets["main"].resources.srcDirs("resources")
 sourceSets["test"].resources.srcDirs("testresources")
 
+java {
+    sourceCompatibility = sourceVersion
+    targetCompatibility = targetVersion
+}
+
+tasks.compileJava {
+    sourceCompatibility = sourceVersion.toString()
+    targetCompatibility = targetVersion.toString()
+}
+
 tasks.compileKotlin {
-    sourceCompatibility = javaVersion
-    targetCompatibility = javaVersion
+    sourceCompatibility = sourceVersion.toString()
+    targetCompatibility = targetVersion.toString()
     kotlinOptions {
-        jvmTarget = javaVersion
+        jvmTarget = targetVersion.toString()
     }
 }
 
 tasks.compileTestKotlin {
-    sourceCompatibility = javaVersion
-    targetCompatibility = javaVersion
+    sourceCompatibility = sourceVersion.toString()
+    targetCompatibility = targetVersion.toString()
     kotlinOptions {
-        jvmTarget = javaVersion
+        jvmTarget = targetVersion.toString()
     }
 }
 
 tasks.detekt {
-    jvmTarget = javaVersion
+    jvmTarget = targetVersion.toString()
 }
 
 tasks.test {

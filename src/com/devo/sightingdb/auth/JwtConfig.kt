@@ -22,11 +22,7 @@ import java.time.Duration
 import java.time.Instant
 import java.util.Date
 
-class JwtConfig(secret: String, private val issuer: String) {
-
-    companion object {
-        private val DEFAULT_VALIDITY = Duration.ofHours(1)
-    }
+class JwtConfig(secret: String, private val issuer: String, val validity: Duration) {
 
     data class User(val name: String, val password: String) : Principal
 
@@ -35,7 +31,7 @@ class JwtConfig(secret: String, private val issuer: String) {
     private val algorithm: Algorithm = Algorithm.HMAC256(secret)
     val verifier: JWTVerifier = JWT.require(algorithm).withIssuer(issuer).build()
 
-    private fun getExpiration() = Date.from(Instant.now().plusMillis(DEFAULT_VALIDITY.toMillis()))
+    private fun getExpiration() = Date.from(Instant.now().plusMillis(validity.toMillis()))
 
     fun makeToken(user: User): Token = Token(
         JWT.create()
@@ -48,12 +44,17 @@ class JwtConfig(secret: String, private val issuer: String) {
     )
 }
 
-val Application.jwtConfig get() = JwtConfig(jwtSecret, jwtIssuer)
+val Application.jwtConfig get() = JwtConfig(jwtSecret, jwtIssuer, jwtValidity)
 
 val Application.jwtUsers
     get() = environment.config.configList("ktor.jwt.users").map {
         JwtConfig.User(it.property("name").getString(), it.property("password").getString())
     }.toSet()
+
+val Application.jwtValidity: Duration
+    get() = Duration.ofSeconds(
+        environment.config.property("ktor.jwt.validitySeconds").getString().toLong()
+    )
 
 val Application.jwtSecret get() = environment.config.property("ktor.jwt.secret").getString()
 
