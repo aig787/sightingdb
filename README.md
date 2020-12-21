@@ -1,4 +1,8 @@
-<p align="center"><img src="doc/sightingdb-logo3_128.png"/></p>
+SightingDB
+========
+
+<div style="text-align:center"><img alt="sighting logo" src="doc/sightingdb-logo3_128.png"/></div>
+<br>
 
 SightingDB is a database designed for Sightings, a technique to count items. This is helpful for Threat Intelligence as Sightings allow
 to enrich indicators or attributes with Observations, rather than Reputation.
@@ -15,46 +19,146 @@ SightingDB is designed to scale writing and reading.
 Building
 ========
 
-1) Make sure you have Rust and Cargo installed
-2) Run ''make''
+1) Make sure JDK 11 or greater is installed
+2) Run `./gradlew distTar`
 
 Running
 =======
 
-To run from the source directory:
-
-1. Generate a certificate: `cd etc; mkdir ssl; cd ssl; openssl req -new -newkey rsa:2048 -days 365 -nodes -x509 -keyout key.pem -out cert.pem; cd ../..`
-2. `ln -s etc/ssl ssl`
-3. `ln -s etc/sighting-daemon.ini sighting-daemon.ini`
-4. Start the Sighting DB: ./target/debug/sighting-daemon
+To run from the source directory run `./gradlew run`. The database can now be accessed at localhost:9990.
 
 Client Demo
 ===========
 
 Writing
 -------
-	$ curl -k https://localhost:9999/w/my/namespace/?val=127.0.0.1
-	{"message":"ok"}	
-	$ curl -k https://localhost:9999/w/another/namespace/?val=127.0.0.1
-	{"message":"ok"}
-	$ curl -k https://localhost:9999/w/another/namespace/?val=127.0.0.1
-	{"message":"ok"}
+```bash
+$ curl http://localhost:9990/w/my/namespace/?val=127.0.0.1
+{"count":1,"message":"ok"}	
+
+$ curl http://localhost:9990/w/another/namespace/?val=127.0.0.1
+{"count":1,"message":"ok"}	
+
+$ curl http://localhost:9990/w/another/namespace/?val=127.0.0.1
+{"count":1,"message":"ok"}	
+
+# Bulk writes are JSON objects of namespace, value, and optionally a timestamp as epoch milliseconds
+$ curl -X POST -H "Content-Type: application/json" -d '{"items": [{"namespace": "/a/namespace", "value": "127.0.0.1", "timespamp": 0}, {"namespace": "/a/namespace", "value": "127.0.0.2"}]}' http://localhost:9990/wb
+{"count":2,"message":"ok"}
+```
 
 Reading
 -------
-	$ curl -k https://localhost:9999/r/my/namespace/?val=$(b64 127.0.0.1)
-	{"value":"127.0.0.1","first_seen":1566624658,"last_seen":1566624658,"count":1,"tag":"","ttl":0,"consensus":2}
-	
-	$ curl -k https://localhost:9999/r/another/namespace/?val=127.0.0.1
-	{"value":"127.0.0.1","first_seen":1566624686,"last_seen":1566624689,"count":2,"tag":"","ttl":0,"consensus":2}
+```bash
+$ curl -k 'http://localhost:9990/r/another/namespace/?val=127.0.0.1'
+{
+  "value": "127.0.0.1",
+  "first_seen": "2020-12-18T11:20:24.677428",
+  "last_seen": "2020-12-18T11:20:24.677428",
+  "consensus": 4,
+  "count": "1",
+  "tags": {},
+  "ttl": 0
+}
 
-	$ curl -k https://localhost:9999/rs/my/namespace/?val=127.0.0.1
-	{"value":"127.0.0.1","first_seen":1593719022,"last_seen":1593721509,"count":10,"tags":"","ttl":0,"stats":{"1593716400":2,"1593720000":8},"consensus":1}
-	
+$ curl -k 'http://localhost:9990/r/another/namespace/?val=127.0.0.1'
+{
+  "value": "127.0.0.1",
+  "first_seen": "2020-12-18T11:20:24.677428",
+  "last_seen": "2020-12-18T11:20:24.677428",
+  "consensus": 4,
+  "count": "1",
+  "tags": {},
+  "ttl": 0,
+  "stats": {
+    "2020-12-18T11:00": 1
+  }
+}
+
+$ curl -X POST -H "Content-Type: application/json" -d '{"items": [{"namespace": "/a/namespace", "value": "127.0.0.1"}, {"namespace": "/a/namespace", "value": "127.0.0.2"}]}' http://localhost:9990/rb
+{
+  "items": [
+    {
+      "value": "127.0.0.1",
+      "first_seen": "2020-12-18T11:13:31.723596",
+      "last_seen": "2020-12-18T11:14:31.890442",
+      "consensus": 3,
+      "count": "3",
+      "tags": {},
+      "ttl": 0
+    },
+    {
+      "value": "127.0.0.2",
+      "first_seen": "2020-12-18T11:13:31.736353",
+      "last_seen": "2020-12-18T11:14:31.891164",
+      "consensus": 3,
+      "count": "3",
+      "tags": {},
+      "ttl": 0
+    }
+  ]
+}
+
+```
+
 Authentication
---------------
-	$ curl -H 'Authorization: changeme' -k https://localhost:9999/w/my/namespace/?val=127.0.0.1
-	{"message":"ok"}	
+==============
+
+[JWT](https://jwt.io/) authentication can be configured by adding the following to `application.conf`
+
+```hocon
+ktor {
+  jwt {
+    issuer = "sightingdb"
+    secret = "$SECRET"
+    validitySeconds = "3600"
+    users = [
+      { name = "$USER", password: "$PASSWORD" }
+      ...
+    ]
+  }
+}
+```
+
+A JWT token can be obtained via the `/login` route 
+```bash
+$ curl -X POST -H "Content-Type: application/json" -d '{"name": "test", "password": "test"}' http://localhost:9990/login
+{
+  "token": "$TOKEN"
+}
+```
+
+And used to make authenticated requests 
+```bash
+$ curl -k -H "Authorization: Bearer $TOKEN" 'http://localhost:9990/w/another/namespace/?val=127.0.0.1'
+{
+  "count": 1,
+  "message": "ok"
+}
+
+```
+
+TLS
+===
+
+TLS can be configured by adding the following to `application.conf`
+
+```hocon
+ktor{
+  deployment {
+    sslPort = 9999
+    port = null # Optionally disable plaintext listener
+  }
+  security {
+    ssl {
+      keyStore = "$KEYSTORE_PATH"
+      keyAlias = "$ALIAS"
+      keyStorePassword = "$KEYSTORE_PASSWORD"
+      privateKeyPassword = "$KEY_PASSWORD"
+    }
+  }
+}
+```
 
 REST Endpoints
 ==============
@@ -67,3 +171,13 @@ REST Endpoints
 	/d: delete (GET)
 	/c: configure (GET)
 	/i: info (GET)
+
+Logging
+=======
+
+Application logs are written to `/var/log/devo/sightingdb/app.log`. Every sighting is written to `/var/log/devo/sightingdb/commit.log` as a commit log.
+
+Running Tests
+=============
+
+Tests can be run including performance tests with `./gradlew test` or without with `NOPERF=1 ./gradlew test`
