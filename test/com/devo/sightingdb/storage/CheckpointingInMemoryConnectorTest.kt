@@ -3,8 +3,6 @@ package com.devo.sightingdb.storage
 import com.natpryce.hamkrest.assertion.assertThat
 import com.natpryce.hamkrest.equalTo
 import com.typesafe.config.ConfigFactory
-import kotlinx.serialization.ExperimentalSerializationApi
-import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -17,14 +15,13 @@ class CheckpointingInMemoryConnectorTest {
     private lateinit var connector: CheckpointingInMemoryConnector
     private lateinit var tempPath: Path
 
-    @ExperimentalSerializationApi
     @BeforeEach
     fun setUp() {
         tempPath = Files.createTempDirectory("checkpointing-in-memory")
         val config = ConfigFactory.parseMap(
             mapOf(
                 "path" to tempPath.toString(),
-                "checkpointInterval" to "1 second"
+                "checkpointIntervalSeconds" to "3600"
             )
         )
         connector = CheckpointingInMemoryConnector().build(config) as CheckpointingInMemoryConnector
@@ -70,20 +67,12 @@ class CheckpointingInMemoryConnectorTest {
         ConnectorTestSuite.retrieveConsensus(connector)
     }
 
-    @ExperimentalSerializationApi
     @Test
     fun `Should back up and restore from disk`() {
         val path = Paths.get(tempPath.toString(), "attribute-cache.0")
         connector.observe("namespace", "value")
-        var map: Map<String, Namespace> = emptyMap()
-        await().until {
-            try {
-                map = connector.restore(path)
-            } catch (e: Exception) {
-                // ignore
-            }
-            path.toFile().exists() && map.isNotEmpty()
-        }
-        assertThat(map, equalTo(connector.map()))
+        connector.backup(tempPath.toString(), connector.map())
+        val restored = connector.restore(path)
+        assertThat(restored, equalTo(connector.map()))
     }
 }

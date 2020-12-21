@@ -3,7 +3,6 @@ plugins {
     jacoco
     application
     kotlin("jvm") version Versions.kotlin
-    kotlin("plugin.serialization") version Versions.kotlin
     id("application")
     id("org.sonarqube") version "3.0"
     id("io.gitlab.arturbosch.detekt") version "1.12.0"
@@ -84,7 +83,7 @@ tasks.test {
         if (!System.getenv("NOPERF").isNullOrBlank()) {
             excludeTags = setOf("PerfTest")
         } else {
-            maxHeapSize = "2G"
+            maxHeapSize = "4G"
         }
     }
     finalizedBy(tasks.jacocoTestReport)
@@ -101,18 +100,18 @@ tasks.startScripts {
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.0.1")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-cbor:1.0.1")
     implementation("io.ktor:ktor-server-cio:${Versions.ktor}")
     implementation("io.ktor:ktor-server-netty:${Versions.ktor}")
 
     implementation("ch.qos.logback:logback-classic:${Versions.logback}")
     implementation("io.github.microutils:kotlin-logging:1.8.3")
     implementation("io.ktor:ktor-network-tls-certificates:${Versions.ktor}")
-    implementation("io.ktor:ktor-client-core:${Versions.ktor}")
-    implementation("io.ktor:ktor-client-core-jvm:${Versions.ktor}")
-    implementation("io.ktor:ktor-client-cio:${Versions.ktor}")
-    implementation("io.ktor:ktor-serialization:${Versions.ktor}")
+    implementation("io.ktor:ktor-auth:${Versions.ktor}")
+    implementation("io.ktor:ktor-auth-jwt:${Versions.ktor}")
+    implementation("io.ktor:ktor-jackson:${Versions.ktor}")
+    implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.12.0")
+    implementation("com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.12.0")
+    implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:2.12.0")
     implementation("org.rocksdb:rocksdbjni:${Versions.rocksDB}")
     implementation("com.google.guava:guava:${Versions.guava}")
     implementation("org.mapdb:mapdb:3.0.8")

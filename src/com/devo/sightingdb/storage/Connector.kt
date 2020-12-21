@@ -1,11 +1,12 @@
 package com.devo.sightingdb.storage
 
-import com.devo.sightingdb.data.SightingWithStats
+import com.devo.sightingdb.data.Sighting
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.typesafe.config.Config
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
+import io.ktor.config.ApplicationConfig
+import io.ktor.config.HoconApplicationConfig
 import mu.KotlinLogging
-import java.time.LocalDateTime
+import java.time.OffsetDateTime
 
 @Suppress("TooManyFunctions")
 abstract class Connector {
@@ -15,38 +16,41 @@ abstract class Connector {
     }
 
     private val commitLog = KotlinLogging.logger("commit-log")
+    protected val jsonMapper = jacksonObjectMapper()
 
-    abstract fun build(config: Config): Connector
+    abstract fun build(config: ApplicationConfig): Connector
     abstract fun getNamespaceConfig(namespace: String, key: String): String?
     abstract fun putNamespaceConfig(namespace: String, key: String, value: String)
 
-    internal abstract fun write(namespace: String, sighting: SightingWithStats)
-    internal abstract fun read(namespace: String, value: String): SightingWithStats?
-    internal abstract fun readNamespace(namespace: String): List<SightingWithStats>?
+    internal abstract fun write(namespace: String, sighting: Sighting)
+    internal abstract fun read(namespace: String, value: String): Sighting?
+    internal abstract fun readNamespace(namespace: String): List<Sighting>?
 
-    private fun SightingWithStats.resolveConsensus(): SightingWithStats {
+    private fun Sighting.resolveConsensus(): Sighting {
         val consensus = read(ALL, value)?.consensus ?: 0
         return copy(consensus = consensus)
     }
 
-    private fun writeAndLog(namespace: String, sighting: SightingWithStats) {
-        commitLog.info { "$namespace ${Json.encodeToString(sighting.withoutStats())}" }
+    private fun writeAndLog(namespace: String, sighting: Sighting) {
+        commitLog.info { "$namespace ${jsonMapper.writeValueAsString(sighting)}" }
         write(namespace, sighting)
     }
+
+    fun build(config: Config): Connector = build(HoconApplicationConfig(config))
 
     fun observe(
         namespace: String,
         value: String,
-        time: LocalDateTime = LocalDateTime.now(),
+        time: OffsetDateTime = Sighting.now(),
         withConsensus: Boolean = true
     ) {
         val consensusSighting = when (val v = read(ALL, value)) {
-            null -> SightingWithStats.new(value, time)
+            null -> Sighting.new(value, time)
             else -> v
         }
         val sighting = when (val v = read(namespace, value)) {
-            null -> SightingWithStats.new(value, time)
-            else -> v.inc()
+            null -> Sighting.new(value, time)
+            else -> v.inc(time)
         }
         writeAndLog(namespace, sighting)
         if (withConsensus) {
@@ -54,13 +58,13 @@ abstract class Connector {
         }
     }
 
-    fun get(namespace: String, value: String): SightingWithStats? = read(namespace, value).also {
+    fun get(namespace: String, value: String): Sighting? = read(namespace, value).also {
         if (it == null) {
             observe("$SHADOW$namespace", value, withConsensus = false)
         }
     }?.resolveConsensus()
 
-    fun get(namespace: String): List<SightingWithStats>? {
+    fun get(namespace: String): List<Sighting>? {
         return readNamespace(namespace)?.map { it.resolveConsensus() }
     }
 

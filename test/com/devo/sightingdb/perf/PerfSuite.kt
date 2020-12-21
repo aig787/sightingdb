@@ -2,7 +2,7 @@ package com.devo.sightingdb.perf
 
 import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.Logger
-import com.devo.sightingdb.data.SightingWithStats
+import com.devo.sightingdb.data.Sighting
 import com.devo.sightingdb.storage.Connector
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -89,13 +89,13 @@ object PerfSuite {
     fun readWriteIPv4(connector: Connector, namespaceCount: Int) {
         writeIPv4(connector, (0 until namespaceCount).map { "/namespace/$it" })
         val namespace = "/namespace/${Random.nextInt(0, namespaceCount)}"
-        var namespaceValues: List<SightingWithStats>
+        var namespaceValues: List<Sighting>
         val readNamespaceMillis = measureTimeMillis {
             namespaceValues = connector.get(namespace)!!
             assertTrue(namespaceValues.isNotEmpty())
         }
         println("Read namespace $namespace in $readNamespaceMillis millis")
-        var value: SightingWithStats
+        var value: Sighting
         val readMillis = measureTimeMillis {
             value = connector.get(namespace, namespaceValues.random().value)!!
         }

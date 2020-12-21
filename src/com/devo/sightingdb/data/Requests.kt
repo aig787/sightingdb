@@ -1,9 +1,7 @@
 package com.devo.sightingdb.data
 
-import kotlinx.serialization.Serializable
+import com.fasterxml.jackson.annotation.JsonInclude
 
-@Serializable
+@JsonInclude(JsonInclude.Include.NON_NULL)
 data class SightingRequest(val namespace: String, val value: String, val timestamp: Long? = null)
-
-@Serializable
 data class BulkSightingRequest(val items: List<SightingRequest>)

@@ -1,23 +1,23 @@
 package com.devo.sightingdb
 
 import com.devo.sightingdb.data.BulkSightingRequest
+import com.devo.sightingdb.data.Sighting
 import com.devo.sightingdb.data.SightingRequest
-import com.devo.sightingdb.data.SightingWithStats
-import com.devo.sightingdb.data.SightingWithoutStats
+import com.devo.sightingdb.routes.readWrite
 import com.devo.sightingdb.storage.Connector
 import com.devo.sightingdb.storage.InMemoryConnector
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.fasterxml.jackson.module.kotlin.readValue
 import com.natpryce.hamkrest.assertion.assertThat
 import com.natpryce.hamkrest.equalTo
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
+import io.ktor.routing.routing
 import io.ktor.server.testing.handleRequest
 import io.ktor.server.testing.setBody
 import io.ktor.server.testing.withTestApplication
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
@@ -25,6 +25,7 @@ import kotlin.test.assertNotNull
 
 class ApplicationTest {
 
+    private val mapper = jacksonObjectMapper().findAndRegisterModules()
     private lateinit var connector: Connector
 
     @BeforeEach
@@ -34,7 +35,8 @@ class ApplicationTest {
 
     @Test
     fun testWriteNew() = withTestApplication({
-        mainModule(connector)
+        install()
+        routing { readWrite(connector) }
     }) {
         with(handleRequest(HttpMethod.Get, "/w/a/namespace/?val=abcd")) {
             assertEquals(HttpStatusCode.Created, response.status())
@@ -45,7 +47,8 @@ class ApplicationTest {
 
     @Test
     fun testWriteExisting() = withTestApplication({
-        mainModule(connector)
+        install()
+        routing { readWrite(connector) }
     }) {
         val namespace = "/a/namespace"
         val value = "abcd"
@@ -59,12 +62,13 @@ class ApplicationTest {
 
     @Test
     fun testWriteBulk() = withTestApplication({
-        mainModule(connector)
+        install()
+        routing { readWrite(connector) }
     }) {
         val items = (0 until 50).map { SightingRequest("/namespace/$it", it.toString()) }
         val call = handleRequest(HttpMethod.Post, "/wb") {
             addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
-            setBody(Json.encodeToString(BulkSightingRequest(items)))
+            setBody(mapper.writeValueAsString(BulkSightingRequest(items)))
         }
         with(call) {
             assertEquals(HttpStatusCode.Created, response.status())
@@ -76,7 +80,8 @@ class ApplicationTest {
 
     @Test
     fun testReadNew() = withTestApplication({
-        mainModule(connector)
+        install()
+        routing { readWrite(connector) }
     }) {
         with(handleRequest(HttpMethod.Get, "/r/a/namespace/?val=abcd")) {
             assertEquals(HttpStatusCode.NotFound, response.status())
@@ -85,21 +90,24 @@ class ApplicationTest {
 
     @Test
     fun testReadExisting() = withTestApplication({
-        mainModule(connector)
+        install()
+        routing { readWrite(connector) }
     }) {
         val namespace = "/a/namespace"
         val value = "abcd"
         connector.observe(namespace, value)
         with(handleRequest(HttpMethod.Get, "/r/a/namespace/?val=abcd")) {
             assertEquals(HttpStatusCode.OK, response.status())
-            val attr: SightingWithoutStats = Json.decodeFromString(response.content!!)
-            assertThat(attr, equalTo(connector.get(namespace, value)?.withoutStats()))
+            val response: Sighting = mapper.readValue(response.content!!)
+            val stored = connector.get(namespace, value)?.copy(stats = emptyMap())
+            assertThat(response, equalTo(stored))
         }
     }
 
     @Test
     fun testReadNamespace() = withTestApplication({
-        mainModule(connector)
+        install()
+        routing { readWrite(connector) }
     }) {
         val namespace = "/a/namespace"
         val items = (0 until 10).map {
@@ -109,14 +117,15 @@ class ApplicationTest {
         }
         with(handleRequest(HttpMethod.Get, "/r/a/namespace")) {
             assertEquals(HttpStatusCode.OK, response.status())
-            val read = Json.decodeFromString<Map<String, List<SightingWithoutStats>>>(response.content!!)["items"]!!
+            val read = mapper.readValue<Map<String, List<Sighting>>>(response.content!!)["items"]!!
             assertEquals(items.size, read.size)
         }
     }
 
     @Test
     fun testReadBulkExisting() = withTestApplication({
-        mainModule(connector)
+        install()
+        routing { readWrite(connector) }
     }) {
         val items = (0 until 50).map {
             SightingRequest("/namespace/$it", it.toString()).also { req ->
@@ -125,11 +134,11 @@ class ApplicationTest {
         }
         val call = handleRequest(HttpMethod.Post, "/rb") {
             addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
-            setBody(Json.encodeToString(BulkSightingRequest(items)))
+            setBody(mapper.writeValueAsString(BulkSightingRequest(items)))
         }
         with(call) {
             assertEquals(HttpStatusCode.OK, response.status())
-            val read = Json.decodeFromString<Map<String, List<SightingWithoutStats>>>(response.content!!)
+            val read = mapper.readValue<Map<String, List<Sighting>>>(response.content!!)
             val readItems = read["items"]!!
             assertThat(readItems.size, equalTo(items.size))
             assertThat(readItems.map { it.value }.toSet(), equalTo(items.map { it.value }.toSet()))
@@ -138,7 +147,8 @@ class ApplicationTest {
 
     @Test
     fun testReadStatsNew() = withTestApplication({
-        mainModule(connector)
+        install()
+        routing { readWrite(connector) }
     }) {
         with(handleRequest(HttpMethod.Get, "/rs/a/namespace/?val=abcd")) {
             assertEquals(HttpStatusCode.NotFound, response.status())
@@ -147,21 +157,24 @@ class ApplicationTest {
 
     @Test
     fun testReadStatsExisting() = withTestApplication({
-        mainModule(connector)
+        install()
+        routing { readWrite(connector) }
     }) {
         val namespace = "/a/namespace"
         val value = "abcd"
         connector.observe(namespace, value)
         with(handleRequest(HttpMethod.Get, "/rs/a/namespace/?val=abcd")) {
             assertEquals(HttpStatusCode.OK, response.status())
-            val attr: SightingWithStats = Json.decodeFromString(response.content!!)
-            assertThat(attr, equalTo(connector.get(namespace, value)))
+            val response: Sighting = mapper.readValue(response.content!!)
+            val stored = connector.get(namespace, value)
+            assertThat(response, equalTo(stored))
         }
     }
 
     @Test
     fun testReadBulkStatsExisting() = withTestApplication({
-        mainModule(connector)
+        install()
+        routing { readWrite(connector) }
     }) {
         val items = (0 until 50).map {
             SightingRequest("/namespace/$it", it.toString()).also { req ->
@@ -170,11 +183,11 @@ class ApplicationTest {
         }
         val call = handleRequest(HttpMethod.Post, "/rbs") {
             addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
-            setBody(Json.encodeToString(BulkSightingRequest(items)))
+            setBody(mapper.writeValueAsString(BulkSightingRequest(items)))
         }
         with(call) {
             assertEquals(HttpStatusCode.OK, response.status())
-            val read = Json.decodeFromString<Map<String, List<SightingWithStats>>>(response.content!!)
+            val read = mapper.readValue<Map<String, List<Sighting>>>(response.content!!)
             val readItems = read["items"]!!
             assertThat(readItems.size, equalTo(items.size))
             assertThat(readItems.map { it.value }.toSet(), equalTo(items.map { it.value }.toSet()))

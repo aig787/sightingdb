@@ -1,16 +1,14 @@
 package com.devo.sightingdb.data
 
 import io.ktor.http.HttpStatusCode
-import kotlinx.serialization.Serializable
 
-@Serializable
 data class Message(val message: String)
 
-sealed class BulkSightings
-@Serializable
-data class BulkSightingsWithStats(val items: List<SightingWithStats>): BulkSightings()
-@Serializable
-data class BulkSightingsWithoutStats(val items: List<SightingWithoutStats>): BulkSightings()
+data class WroteOk(val count: Int = 1) {
+    val message = "ok"
+}
+
+data class BulkSightings(val items: List<Sighting>)
 
 interface Response {
     val status: HttpStatusCode

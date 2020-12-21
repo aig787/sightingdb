@@ -3,7 +3,6 @@ package com.devo.sightingdb.perf
 import com.devo.sightingdb.storage.CheckpointingInMemoryConnector
 import com.typesafe.config.ConfigFactory
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.serialization.ExperimentalSerializationApi
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
@@ -18,7 +17,6 @@ class CheckpointingInMemoryConnectorPerfTest {
     private lateinit var connector: CheckpointingInMemoryConnector
     private lateinit var workingDir: String
 
-    @ExperimentalSerializationApi
     @BeforeEach
     fun setUp() {
         workingDir = Files.createTempDirectory("checkpointing-perf").toString()
@@ -26,7 +24,7 @@ class CheckpointingInMemoryConnectorPerfTest {
             ConfigFactory.parseMap(
                 mapOf(
                     "path" to workingDir,
-                    "checkpointInterval" to Duration.ofHours(1)
+                    "checkpointIntervalSeconds" to Duration.ofHours(1)
                 )
             )
         ) as CheckpointingInMemoryConnector
@@ -37,7 +35,6 @@ class CheckpointingInMemoryConnectorPerfTest {
         connector.close()
     }
 
-    @ExperimentalSerializationApi
     @ExperimentalCoroutinesApi
     @Test
     @Tag("PerfTest")

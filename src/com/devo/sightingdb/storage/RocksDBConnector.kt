@@ -1,12 +1,12 @@
 package com.devo.sightingdb.storage
 
-import com.devo.sightingdb.data.SightingWithStats
+import com.devo.sightingdb.data.Sighting
+import com.devo.sightingdb.toHex
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.dataformat.cbor.CBORFactory
+import com.fasterxml.jackson.module.kotlin.readValue
 import com.google.common.hash.Hashing
-import com.typesafe.config.Config
-import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.cbor.Cbor
-import kotlinx.serialization.decodeFromByteArray
-import kotlinx.serialization.encodeToByteArray
+import io.ktor.config.ApplicationConfig
 import mu.KotlinLogging
 import org.mapdb.DB
 import org.mapdb.DBMaker
@@ -70,11 +70,11 @@ class RocksDBConnector : Connector() {
     }
 
     private val log = KotlinLogging.logger { }
+    private val mapper = ObjectMapper(CBORFactory()).findAndRegisterModules()
     private val columnFamilyHandles = mutableMapOf<String, ColumnFamilyHandle>()
-    private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
 
-    override fun build(config: Config): Connector {
-        val path = config.getString("path")
+    override fun build(config: ApplicationConfig): Connector {
+        val path = config.property("path").getString()
 
         metaDB = DBMaker.fileDB(Paths.get(path, "meta").toFile()).fileMmapEnable().make()
         columnFamilyNames = metaDB.hashSet("cfnames").serializer(Serializer.STRING).createOrOpen()
@@ -108,11 +108,11 @@ class RocksDBConnector : Connector() {
         db.close()
     }
 
-    @ExperimentalSerializationApi
-    override fun write(namespace: String, sighting: SightingWithStats) {
+    @ExperimentalUnsignedTypes
+    override fun write(namespace: String, sighting: Sighting) {
         val key = getKey(sighting.value)
         log.trace { "Writing $sighting to $namespace/${key.toHex()}" }
-        write(namespace, key, serialize(sighting))
+        write(namespace, key, serialize(sighting.copy(serializeWithStats = true)))
     }
 
     private fun write(namespace: String, key: ByteArray, value: ByteArray) {
@@ -125,8 +125,7 @@ class RocksDBConnector : Connector() {
         db.put(columnFamilyHandles[namespace], writeOptions, key, value)
     }
 
-    @ExperimentalSerializationApi
-    override fun read(namespace: String, value: String): SightingWithStats? =
+    override fun read(namespace: String, value: String): Sighting? =
         if (!columnFamilyHandles.containsKey(namespace)) {
             null
         } else {
@@ -135,19 +134,16 @@ class RocksDBConnector : Connector() {
 
     private fun getKey(value: String): ByteArray = hash128(value)
 
-    @ExperimentalSerializationApi
-    private fun serialize(sighting: SightingWithStats): ByteArray = Cbor.encodeToByteArray(sighting)
+    private fun serialize(sighting: Sighting): ByteArray = mapper.writeValueAsBytes(sighting)
 
-    @ExperimentalSerializationApi
-    private fun deserialize(bytes: ByteArray): SightingWithStats = Cbor.decodeFromByteArray(bytes)
+    private fun deserialize(bytes: ByteArray): Sighting = mapper.readValue(bytes)
 
-    @ExperimentalSerializationApi
-    override fun readNamespace(namespace: String): List<SightingWithStats>? {
+    override fun readNamespace(namespace: String): List<Sighting>? {
         return if (!columnFamilyHandles.containsKey(namespace)) {
             null
         } else {
             db.newIterator(columnFamilyHandles[namespace]).use {
-                val sightings = mutableListOf<SightingWithStats>()
+                val sightings = mutableListOf<Sighting>()
                 it.seekToFirst()
                 while (it.isValid) {
                     sightings.add(deserialize(it.value()))

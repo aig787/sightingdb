@@ -1,20 +1,17 @@
 package com.devo.sightingdb.storage
 
-import com.devo.sightingdb.data.SightingWithStats
-import kotlinx.serialization.Serializable
-import java.util.concurrent.ConcurrentHashMap
+import com.devo.sightingdb.data.Sighting
 
-@Serializable
 data class Namespace(
     val name: String,
     val config: MutableMap<String, String> = mutableMapOf(),
-    val sightings: MutableMap<String, SightingWithStats> = ConcurrentHashMap()
+    val sightings: MutableMap<String, Sighting> = mutableMapOf()
 ) {
-    fun put(sighting: SightingWithStats) {
+    fun put(sighting: Sighting) {
         sightings[sighting.value] = sighting
     }
 
     fun get(value: String) = sightings[value]
 
-    fun getAll() = sightings.values.toList()
+    fun all() = sightings.values.toList()
 }

@@ -1,64 +1,56 @@
 package com.devo.sightingdb.data
 
-import com.devo.sightingdb.serde.BigIntegerSerializer
-import com.devo.sightingdb.serde.DurationSerializer
-import com.devo.sightingdb.serde.LocalDateTimeSerializer
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
+import com.fasterxml.jackson.annotation.JsonIgnore
+import com.fasterxml.jackson.annotation.JsonProperty
+import com.fasterxml.jackson.core.JsonGenerator
+import com.fasterxml.jackson.databind.JsonSerializer
+import com.fasterxml.jackson.databind.SerializerProvider
+import com.fasterxml.jackson.databind.annotation.JsonSerialize
 import mu.KotlinLogging
 import java.math.BigInteger
 import java.time.Duration
-import java.time.LocalDateTime
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
 
 enum class Format {
     RAW, SHA256, BASE_64
 }
 
-interface Sighting {
-    val value: String
-    val firstSeen: LocalDateTime
-    val lastSeen: LocalDateTime
-    val consensus: Long
-    val count: BigInteger
-    val tags: Map<String, String>
-    val ttl: Duration
-}
-
-@Serializable
-data class SightingWithStats(
-    override val value: String,
-    @Serializable(with = LocalDateTimeSerializer::class)
-    @SerialName("first_seen")
-    override val firstSeen: LocalDateTime,
-    @Serializable(with = LocalDateTimeSerializer::class)
-    @SerialName("last_seen")
-    override val lastSeen: LocalDateTime,
-    override val consensus: Long = 0,
-    @Serializable(with = BigIntegerSerializer::class)
-    override val count: BigInteger = BigInteger.ZERO,
-    override val tags: Map<String, String> = emptyMap(),
-    @Serializable(with = DurationSerializer::class)
-    override val ttl: Duration = Duration.ZERO,
-    val stats: Map<String, Long> = emptyMap()
-) : Sighting {
+@JsonSerialize(using = SightingSerializer::class)
+data class Sighting(
+    val value: String,
+    @JsonProperty(value = "first_seen")
+    val firstSeen: OffsetDateTime,
+    @JsonProperty(value = "last_seen")
+    val lastSeen: OffsetDateTime,
+    val consensus: Long = 0,
+    val count: BigInteger = BigInteger.ZERO,
+    val tags: Map<String, String> = emptyMap(),
+    val ttl: Duration = Duration.ZERO,
+    @JsonIgnore
+    val serializeWithStats: Boolean = true,
+    val stats: Map<OffsetDateTime, Long> = emptyMap()
+) {
     companion object {
 
         private val log = KotlinLogging.logger { }
 
-        fun new(value: String, time: LocalDateTime = LocalDateTime.now()): SightingWithStats =
-            SightingWithStats(
+        fun now(): OffsetDateTime = OffsetDateTime.now(ZoneOffset.UTC)
+
+        fun new(value: String, time: OffsetDateTime = now()): Sighting =
+            Sighting(
                 value, time, time, count = BigInteger.ONE, stats = mapOf(
-                    time.truncatedTo(ChronoUnit.HOURS).toString() to 1L
+                    time.truncatedTo(ChronoUnit.HOURS) to 1L
                 )
             ).also {
                 log.debug { "New sighting $it" }
             }
     }
 
-    fun inc(time: LocalDateTime = LocalDateTime.now()): SightingWithStats {
+    fun inc(time: OffsetDateTime = now()): Sighting {
         log.debug { "Incrementing $this" }
-        val hourBucket = time.truncatedTo(ChronoUnit.HOURS).toString()
+        val hourBucket = time.truncatedTo(ChronoUnit.HOURS)
         val hourCount = stats[hourBucket] ?: 0
         return copy(
             count = count.inc(),
@@ -67,25 +59,20 @@ data class SightingWithStats(
             stats = stats + (hourBucket to hourCount + 1)
         )
     }
-
-    fun withoutStats(): SightingWithoutStats = SightingWithoutStats(
-        value, firstSeen, lastSeen, consensus, count, tags, ttl
-    )
 }
 
-@Serializable
-data class SightingWithoutStats(
-    override val value: String,
-    @Serializable(with = LocalDateTimeSerializer::class)
-    @SerialName("first_seen")
-    override val firstSeen: LocalDateTime,
-    @Serializable(with = LocalDateTimeSerializer::class)
-    @SerialName("last_seen")
-    override val lastSeen: LocalDateTime,
-    override val consensus: Long = 0,
-    @Serializable(with = BigIntegerSerializer::class)
-    override val count: BigInteger = BigInteger.ZERO,
-    override val tags: Map<String, String> = emptyMap(),
-    @Serializable(with = DurationSerializer::class)
-    override val ttl: Duration = Duration.ZERO
-) : Sighting
+class SightingSerializer : JsonSerializer<Sighting>() {
+    override fun serialize(value: Sighting, gen: JsonGenerator, serializers: SerializerProvider) {
+        gen.writeStartObject()
+        serializers.defaultSerializeField("value", value.value, gen)
+        serializers.defaultSerializeField("first_seen", value.firstSeen, gen)
+        serializers.defaultSerializeField("last_seen", value.lastSeen, gen)
+        serializers.defaultSerializeField("consensus", value.consensus, gen)
+        serializers.defaultSerializeField("count", value.count, gen)
+        serializers.defaultSerializeField("tags", value.tags, gen)
+        if (value.serializeWithStats) {
+            serializers.defaultSerializeField("stats", value.stats, gen)
+        }
+        gen.writeEndObject()
+    }
+}

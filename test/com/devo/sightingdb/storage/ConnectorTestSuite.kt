@@ -1,17 +1,18 @@
 package com.devo.sightingdb.storage
 
-import com.devo.sightingdb.data.SightingWithStats
+import com.devo.sightingdb.data.Sighting
 import com.natpryce.hamkrest.assertion.assertThat
 import com.natpryce.hamkrest.equalTo
-import java.time.LocalDateTime
-import java.time.ZoneOffset
+import java.time.Instant.ofEpochSecond
+import java.time.OffsetDateTime
+import java.time.ZoneId
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 
 object ConnectorTestSuite {
 
     fun writeSighting(connector: Connector) {
-        val time = LocalDateTime.ofEpochSecond(0, 0, ZoneOffset.UTC)
+        val time = OffsetDateTime.ofInstant(ofEpochSecond(0), ZoneId.of("UTC"))
         connector.observe("/a/namespace", "abcd", time)
         val s = connector.get("/a/namespace", "abcd")
         assertThat(s?.firstSeen, equalTo(time))
@@ -19,9 +20,10 @@ object ConnectorTestSuite {
     }
 
     fun readSighting(connector: Connector) {
-        val expected = SightingWithStats.new("abcd")
+        val expected = Sighting.new("abcd")
         connector.write("/a/namespace", expected)
-        assertThat(connector.get("/a/namespace", "abcd"), equalTo(expected))
+        val read = connector.get("/a/namespace", "abcd")
+        assertThat(read, equalTo(expected))
     }
 
     fun readNamespace(connector: Connector) {
