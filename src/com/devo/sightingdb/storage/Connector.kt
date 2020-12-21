@@ -1,6 +1,7 @@
 package com.devo.sightingdb.storage
 
 import com.devo.sightingdb.data.Sighting
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.typesafe.config.Config
 import io.ktor.config.ApplicationConfig
@@ -16,7 +17,7 @@ abstract class Connector {
     }
 
     private val commitLog = KotlinLogging.logger("commit-log")
-    protected val jsonMapper = jacksonObjectMapper()
+    protected val jsonMapper: ObjectMapper = jacksonObjectMapper().findAndRegisterModules()
 
     abstract fun build(config: ApplicationConfig): Connector
     abstract fun getNamespaceConfig(namespace: String, key: String): String?
@@ -32,7 +33,7 @@ abstract class Connector {
     }
 
     private fun writeAndLog(namespace: String, sighting: Sighting) {
-        commitLog.info { "$namespace ${jsonMapper.writeValueAsString(sighting)}" }
+        commitLog.info { "$namespace ${jsonMapper.writeValueAsString(sighting.copy(serializeWithStats = false))}" }
         write(namespace, sighting)
     }
 

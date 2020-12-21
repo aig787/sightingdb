@@ -20,27 +20,44 @@ import io.ktor.response.respond
 import io.ktor.routing.Route
 import io.ktor.routing.get
 import io.ktor.routing.post
+import mu.KotlinLogging
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
+private val log = KotlinLogging.logger { }
+
 private fun readValue(connector: Connector, namespace: String, value: String): ReadResponse {
+    log.info { "Reading value $namespace $value" }
     return when (val sighting = connector.get(namespace, value)) {
-        null -> MessageResponse(HttpStatusCode.NotFound, Message("Value $value not found in $namespace"))
-        else -> SightingResponse(
-            HttpStatusCode.OK,
-            sighting
-        )
+        null -> {
+            log.info { "No value found for $namespace $value" }
+            MessageResponse(HttpStatusCode.NotFound, Message("Value $value not found in $namespace"))
+        }
+        else -> {
+            log.info { "Found sighting ${sighting.value}" }
+            SightingResponse(
+                HttpStatusCode.OK,
+                sighting
+            )
+        }
     }
 }
 
 private fun readNamespace(connector: Connector, namespace: String): ReadResponse {
+    log.info { "Reading all values for namespace $namespace" }
     return when (val sightings = connector.get(namespace)) {
-        null -> MessageResponse(HttpStatusCode.NotFound, Message("Namespace $namespace not found"))
-        else -> NamespaceResponse(
-            HttpStatusCode.OK,
-            BulkSightings(sightings)
-        )
+        null -> {
+            log.info { "Namespace $namespace not found" }
+            MessageResponse(HttpStatusCode.NotFound, Message("Namespace $namespace not found"))
+        }
+        else -> {
+            log.info { "Found ${sightings.size} in namespace $namespace" }
+            NamespaceResponse(
+                HttpStatusCode.OK,
+                BulkSightings(sightings)
+            )
+        }
     }
 }
 
@@ -58,6 +75,7 @@ private fun read(connector: Connector, namespace: String?, value: String?): Read
 
 private fun readBulk(connector: Connector, toRead: BulkSightingRequest): ReadBulkResponse {
     val items = toRead.items.mapNotNull {
+        log.info { "Reading ${it.namespace} ${it.value}" }
         connector.get(it.namespace, it.value)
     }
     val response = BulkSightings(items)
@@ -72,6 +90,7 @@ fun Route.readWrite(connector: Connector) {
             namespace == null -> call.respond(HttpStatusCode.BadRequest, Message("Must specify namespace"))
             value == null -> call.respond(HttpStatusCode.BadRequest, Message("Must specify val"))
             else -> {
+                log.info { "Observed $namespace $value" }
                 connector.observe(namespace, value)
                 call.respond(HttpStatusCode.Created, WroteOk())
             }
@@ -80,6 +99,7 @@ fun Route.readWrite(connector: Connector) {
     post("/wb") {
         val toWrite = call.receive<BulkSightingRequest>()
         toWrite.items.forEach {
+            log.info { "Observed ${it.namespace} ${it.value}" }
             when (it.timestamp) {
                 null -> connector.observe(it.namespace, it.value)
                 else -> connector.observe(
