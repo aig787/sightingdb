@@ -26,6 +26,9 @@ abstract class Connector {
     internal abstract fun write(namespace: String, sighting: Sighting)
     internal abstract fun read(namespace: String, value: String): Sighting?
     internal abstract fun readNamespace(namespace: String): List<Sighting>?
+    internal abstract fun deleteNamespace(namespace: String): Boolean
+
+    abstract fun delete(namespace: String, value: String): Boolean
 
     private fun Sighting.resolveConsensus(): Sighting {
         val consensus = read(ALL, value)?.consensus ?: 0
@@ -68,6 +71,8 @@ abstract class Connector {
     fun get(namespace: String): List<Sighting>? {
         return readNamespace(namespace)?.map { it.resolveConsensus() }
     }
+
+    fun delete(namespace: String): Boolean = deleteNamespace(namespace)
 
     open fun close() {
         // noop

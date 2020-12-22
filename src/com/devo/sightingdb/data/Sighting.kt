@@ -4,8 +4,10 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.databind.JsonSerializer
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializerProvider
 import com.fasterxml.jackson.databind.annotation.JsonSerialize
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import mu.KotlinLogging
 import java.math.BigInteger
 import java.time.Duration
@@ -15,6 +17,14 @@ import java.time.temporal.ChronoUnit
 
 enum class Format {
     RAW, SHA256, BASE_64
+}
+
+data class SightingKey(val namespace: String, val value: String) {
+    companion object {
+        val mapper: ObjectMapper = jacksonObjectMapper().findAndRegisterModules()
+    }
+
+    override fun toString(): String = mapper.writeValueAsString(this)
 }
 
 @JsonSerialize(using = SightingSerializer::class)

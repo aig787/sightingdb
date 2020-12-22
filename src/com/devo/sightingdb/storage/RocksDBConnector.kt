@@ -125,6 +125,19 @@ class RocksDBConnector : Connector() {
         db.put(columnFamilyHandles[namespace], writeOptions, key, value)
     }
 
+    private fun delete(namespace: String, key: ByteArray) {
+        columnFamilyHandles[namespace]?.run {
+            db.delete(this, writeOptions, key)
+        }
+    }
+
+    private fun get(namespace: String, key: ByteArray): ByteArray? =
+        if (columnFamilyHandles.containsKey(namespace)) {
+            db.get(columnFamilyHandles[namespace]!!, key)
+        } else {
+            null
+        }
+
     override fun read(namespace: String, value: String): Sighting? =
         if (!columnFamilyHandles.containsKey(namespace)) {
             null
@@ -153,6 +166,21 @@ class RocksDBConnector : Connector() {
             }
         }
     }
+
+    override fun delete(namespace: String, value: String): Boolean {
+        val key = getKey(value)
+        return get(namespace, key)?.let {
+            delete(namespace, key)
+            true
+        } ?: false
+    }
+
+    override fun deleteNamespace(namespace: String): Boolean =
+        columnFamilyHandles[namespace]?.let {
+            db.dropColumnFamily(it)
+            columnFamilyHandles.remove(namespace)
+            true
+        } ?: false
 
     override fun getNamespaceConfig(namespace: String, key: String): String? {
         TODO("Not yet implemented")

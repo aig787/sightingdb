@@ -3,12 +3,17 @@ package com.devo.sightingdb.routes
 import com.devo.sightingdb.data.BulkSightingRequest
 import com.devo.sightingdb.data.BulkSightings
 import com.devo.sightingdb.data.BulkSightingsResponse
-import com.devo.sightingdb.data.Message
+import com.devo.sightingdb.data.DeletedResponse
 import com.devo.sightingdb.data.MessageResponse
+import com.devo.sightingdb.data.NamespaceMessage
 import com.devo.sightingdb.data.NamespaceResponse
 import com.devo.sightingdb.data.ReadBulkResponse
 import com.devo.sightingdb.data.ReadResponse
+import com.devo.sightingdb.data.SightingKey
+import com.devo.sightingdb.data.SightingKeyMessage
+import com.devo.sightingdb.data.SightingKeyResponse
 import com.devo.sightingdb.data.SightingResponse
+import com.devo.sightingdb.data.StringMessage
 import com.devo.sightingdb.data.WroteOk
 import com.devo.sightingdb.getNamespace
 import com.devo.sightingdb.getVal
@@ -25,45 +30,65 @@ import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
+const val NOT_FOUND_STRING = "Not found"
+
 private val log = KotlinLogging.logger { }
 
 private fun readValue(connector: Connector, namespace: String, value: String): ReadResponse {
     log.info { "Reading value $namespace $value" }
     return when (val sighting = connector.get(namespace, value)) {
         null -> {
-            log.info { "No value found for $namespace $value" }
-            MessageResponse(HttpStatusCode.NotFound, Message("Value $value not found in $namespace"))
+            log.info { "No value found for ${SightingKey(namespace, value)}" }
+            SightingKeyResponse(
+                HttpStatusCode.NotFound,
+                SightingKeyMessage(NOT_FOUND_STRING, SightingKey(namespace, value))
+            )
         }
         else -> {
             log.info { "Found sighting ${sighting.value}" }
-            SightingResponse(
-                HttpStatusCode.OK,
-                sighting
-            )
+            SightingResponse(sighting)
         }
     }
 }
 
-private fun readNamespace(connector: Connector, namespace: String): ReadResponse {
+private fun deleteValue(connector: Connector, namespace: String, value: String): DeletedResponse {
+    val sighting = SightingKey(namespace, value)
+    log.info { "Deleting $sighting" }
+    return if (connector.delete(namespace, value)) {
+        SightingKeyResponse(HttpStatusCode.OK, SightingKeyMessage("Deleted", sighting))
+    } else {
+        log.info { "$sighting not found" }
+        SightingKeyResponse(HttpStatusCode.NotFound, SightingKeyMessage(NOT_FOUND_STRING, sighting))
+    }
+}
+
+private fun deleteNamespace(connector: Connector, namespace: String): NamespaceResponse {
+    log.info { "Deleting namespace $namespace" }
+    return if (connector.delete(namespace)) {
+        NamespaceResponse(HttpStatusCode.OK, NamespaceMessage("Deleted", namespace))
+    } else {
+        log.info { "Namespace $namespace not found" }
+        NamespaceResponse(HttpStatusCode.NotFound, NamespaceMessage(NOT_FOUND_STRING, namespace))
+    }
+}
+
+private fun readNamespace(connector: Connector, namespace: String): ReadBulkResponse {
     log.info { "Reading all values for namespace $namespace" }
     return when (val sightings = connector.get(namespace)) {
         null -> {
             log.info { "Namespace $namespace not found" }
-            MessageResponse(HttpStatusCode.NotFound, Message("Namespace $namespace not found"))
+            NamespaceResponse(HttpStatusCode.NotFound, NamespaceMessage(NOT_FOUND_STRING, namespace))
         }
         else -> {
             log.info { "Found ${sightings.size} in namespace $namespace" }
-            NamespaceResponse(
-                HttpStatusCode.OK,
-                BulkSightings(sightings)
-            )
+            BulkSightingsResponse(BulkSightings(sightings))
         }
     }
 }
 
 private fun read(connector: Connector, namespace: String?, value: String?): ReadResponse {
     return when (namespace) {
-        null -> MessageResponse(HttpStatusCode.BadGateway, Message("Namespace must be specified"))
+        null -> MessageResponse(HttpStatusCode.NotFound, StringMessage("Namespace must be specified"))
         else -> {
             when (value) {
                 null -> readNamespace(connector, namespace)
@@ -79,7 +104,19 @@ private fun readBulk(connector: Connector, toRead: BulkSightingRequest): ReadBul
         connector.get(it.namespace, it.value)
     }
     val response = BulkSightings(items)
-    return BulkSightingsResponse(HttpStatusCode.OK, response)
+    return BulkSightingsResponse(response)
+}
+
+private fun delete(connector: Connector, namespace: String?, value: String?): DeletedResponse {
+    return when (namespace) {
+        null -> MessageResponse(HttpStatusCode.BadGateway, StringMessage("Namespace must be specified"))
+        else -> {
+            when (value) {
+                null -> deleteNamespace(connector, namespace)
+                else -> deleteValue(connector, namespace, value)
+            }
+        }
+    }
 }
 
 fun Route.readWrite(connector: Connector) {
@@ -87,8 +124,8 @@ fun Route.readWrite(connector: Connector) {
         val namespace = getNamespace(call)
         val value = getVal(call)
         when {
-            namespace == null -> call.respond(HttpStatusCode.BadRequest, Message("Must specify namespace"))
-            value == null -> call.respond(HttpStatusCode.BadRequest, Message("Must specify val"))
+            namespace == null -> call.respond(HttpStatusCode.BadRequest, StringMessage("Must specify namespace"))
+            value == null -> call.respond(HttpStatusCode.BadRequest, StringMessage("Must specify val"))
             else -> {
                 log.info { "Observed $namespace $value" }
                 connector.observe(namespace, value)
@@ -132,6 +169,10 @@ fun Route.readWrite(connector: Connector) {
     }
     post("/rbs") {
         val response = readBulk(connector, call.receive())
+        call.respond(response.status, response.value)
+    }
+    get("/d/{namespace...}") {
+        val response = delete(connector, getNamespace(call), getVal(call))
         call.respond(response.status, response.value)
     }
 }

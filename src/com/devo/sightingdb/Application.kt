@@ -2,6 +2,9 @@ package com.devo.sightingdb
 
 import com.devo.sightingdb.auth.jwtAuth
 import com.devo.sightingdb.auth.jwtLogin
+import com.devo.sightingdb.routes.configure
+import com.devo.sightingdb.routes.info
+import com.devo.sightingdb.routes.ping
 import com.devo.sightingdb.routes.readWrite
 import com.devo.sightingdb.storage.Connector
 import com.fasterxml.jackson.databind.SerializationFeature
@@ -12,13 +15,16 @@ import io.ktor.application.call
 import io.ktor.application.install
 import io.ktor.application.log
 import io.ktor.auth.authenticate
+import io.ktor.features.CallLogging
 import io.ktor.features.ContentNegotiation
 import io.ktor.features.DefaultHeaders
 import io.ktor.features.StatusPages
 import io.ktor.http.HttpStatusCode
 import io.ktor.jackson.jackson
 import io.ktor.response.respond
+import io.ktor.routing.Route
 import io.ktor.routing.routing
+import org.slf4j.event.Level
 
 fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
 
@@ -34,6 +40,9 @@ internal fun getVal(call: ApplicationCall): String? = call.parameters["val"]
 
 fun Application.install() {
     install(DefaultHeaders)
+    install(CallLogging) {
+        level = Level.INFO
+    }
     install(StatusPages) {
         exception<Throwable> { cause ->
             log.error("Uncaught exception", cause)
@@ -49,19 +58,26 @@ fun Application.install() {
     }
 }
 
+fun Route.allRoutes(connector: Connector) {
+    ping()
+    configure()
+    info()
+    readWrite(connector)
+}
+
 fun Application.routes(connector: Connector) {
     if (useJwt) {
         log.info("Using JWT authentication")
         jwtAuth()
         routing {
             authenticate {
-                readWrite(connector)
+                allRoutes(connector)
             }
             jwtLogin()
         }
     } else {
         routing {
-            readWrite(connector)
+            allRoutes(connector)
         }
     }
 }

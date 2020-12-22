@@ -2,7 +2,13 @@ package com.devo.sightingdb.data
 
 import io.ktor.http.HttpStatusCode
 
-data class Message(val message: String)
+interface Message {
+    val message: String
+}
+
+data class StringMessage(override val message: String) : Message
+data class SightingKeyMessage(override val message: String, val sighting: SightingKey) : Message
+data class NamespaceMessage(override val message: String, val namespace: String) : Message
 
 data class WroteOk(val count: Int = 1) {
     val message = "ok"
@@ -16,24 +22,30 @@ interface Response {
 }
 
 interface ReadResponse : Response
-interface ReadBulkResponse : Response
+interface ReadBulkResponse : ReadResponse
+interface DeletedResponse : Response
+
+data class SightingKeyResponse(
+    override val status: HttpStatusCode,
+    override val value: SightingKeyMessage
+) : ReadResponse, DeletedResponse
+
+data class NamespaceResponse(
+    override val status: HttpStatusCode,
+    override val value: NamespaceMessage
+) : ReadBulkResponse, DeletedResponse, ReadResponse
 
 data class MessageResponse(
     override val status: HttpStatusCode,
     override val value: Message
-) : ReadResponse, ReadBulkResponse
+) : ReadResponse, ReadBulkResponse, DeletedResponse
 
 data class SightingResponse(
-    override val status: HttpStatusCode = HttpStatusCode.OK,
-    override val value: Sighting
-) : ReadResponse
-
-data class NamespaceResponse(
-    override val status: HttpStatusCode = HttpStatusCode.OK,
-    override val value: BulkSightings
+    override val value: Sighting,
+    override val status: HttpStatusCode = HttpStatusCode.OK
 ) : ReadResponse
 
 data class BulkSightingsResponse(
-    override val status: HttpStatusCode = HttpStatusCode.OK,
-    override val value: BulkSightings
+    override val value: BulkSightings,
+    override val status: HttpStatusCode = HttpStatusCode.OK
 ) : ReadBulkResponse

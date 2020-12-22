@@ -28,4 +28,22 @@ open class InMemoryConnector : Connector() {
 
     override fun readNamespace(namespace: String): List<Sighting>? =
         store[namespace]?.all()
+
+    override fun delete(namespace: String, value: String): Boolean {
+        return when (val n = store[namespace]) {
+            null -> false
+            else -> if (n.sightings.containsKey(value)) {
+                n.sightings.remove(value)
+                true
+            } else false
+        }
+    }
+
+    override fun deleteNamespace(namespace: String): Boolean =
+        if (store.containsKey(namespace)) {
+            store.remove(namespace)
+            true
+        } else {
+            false
+        }
 }
