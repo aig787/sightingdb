@@ -15,94 +15,23 @@ However, it will also provide the following features:
 * Get the consensus for each item (how many times the same value exists in another namespace)
 
 SightingDB is designed to scale writing and reading.
-
-Building
-========
+# Building
 
 1) Make sure JDK 11 or greater is installed
 2) Run `./gradlew distTar`
 
-Running
-=======
+# Running
 
 To run from the source directory run `./gradlew run`. The database can now be accessed at localhost:9990.
 
-Client Demo
-===========
+# Routes
 
-Writing
--------
-```bash
-$ curl http://localhost:9990/w/my/namespace/?val=127.0.0.1
-{"count":1,"message":"ok"}	
+[V1 Routes](doc/V1.md)
 
-$ curl http://localhost:9990/w/another/namespace/?val=127.0.0.1
-{"count":1,"message":"ok"}	
 
-$ curl http://localhost:9990/w/another/namespace/?val=127.0.0.1
-{"count":1,"message":"ok"}	
+# Authentication
 
-# Bulk writes are JSON objects of namespace, value, and optionally a timestamp as epoch milliseconds
-$ curl -X POST -H "Content-Type: application/json" -d '{"items": [{"namespace": "/a/namespace", "value": "127.0.0.1", "timespamp": 0}, {"namespace": "/a/namespace", "value": "127.0.0.2"}]}' http://localhost:9990/wb
-{"count":2,"message":"ok"}
-```
-
-Reading
--------
-```bash
-$ curl -k 'http://localhost:9990/r/another/namespace/?val=127.0.0.1'
-{
-  "value": "127.0.0.1",
-  "first_seen": "2020-12-18T11:20:24.677428",
-  "last_seen": "2020-12-18T11:20:24.677428",
-  "consensus": 4,
-  "count": "1",
-  "tags": {},
-  "ttl": 0
-}
-
-$ curl -k 'http://localhost:9990/r/another/namespace/?val=127.0.0.1'
-{
-  "value": "127.0.0.1",
-  "first_seen": "2020-12-18T11:20:24.677428",
-  "last_seen": "2020-12-18T11:20:24.677428",
-  "consensus": 4,
-  "count": "1",
-  "tags": {},
-  "ttl": 0,
-  "stats": {
-    "2020-12-18T11:00": 1
-  }
-}
-
-$ curl -X POST -H "Content-Type: application/json" -d '{"items": [{"namespace": "/a/namespace", "value": "127.0.0.1"}, {"namespace": "/a/namespace", "value": "127.0.0.2"}]}' http://localhost:9990/rb
-{
-  "items": [
-    {
-      "value": "127.0.0.1",
-      "first_seen": "2020-12-18T11:13:31.723596",
-      "last_seen": "2020-12-18T11:14:31.890442",
-      "consensus": 3,
-      "count": "3",
-      "tags": {},
-      "ttl": 0
-    },
-    {
-      "value": "127.0.0.2",
-      "first_seen": "2020-12-18T11:13:31.736353",
-      "last_seen": "2020-12-18T11:14:31.891164",
-      "consensus": 3,
-      "count": "3",
-      "tags": {},
-      "ttl": 0
-    }
-  ]
-}
-
-```
-
-Authentication
-==============
+## JWT
 
 [JWT](https://jwt.io/) authentication can be configured by adding the following to `application.conf`
 
@@ -113,7 +42,7 @@ ktor {
     secret = "$SECRET"
     validitySeconds = "3600"
     users = [
-      { name = "$USER", password: "$PASSWORD" }
+      { name = "$USER", password = "$PASSWORD" }
       ...
     ]
   }
@@ -121,25 +50,38 @@ ktor {
 ```
 
 A JWT token can be obtained via the `/login` route 
+
+Request:
+```json
+{"name": "$USERNAME", "password": ",$PASSWORD"}
+```
+Response:
+```json
+{"token": "$TOKEN"}
+```
+
+This token can then be used to make authenticated requests via the header
 ```bash
-$ curl -X POST -H "Content-Type: application/json" -d '{"name": "test", "password": "test"}' http://localhost:9990/login
-{
-  "token": "$TOKEN"
+Authorization: Bearer $TOKEN
+``` 
+
+## Basic
+
+Basic authentication can be configured by adding the following to `application.conf`
+```hocon
+ktor {
+  basicAuth.users = [
+    { name = "$USER", password = "$PASSWORD" }
+  ]
 }
 ```
 
-And used to make authenticated requests 
+Authenticated requests can then be made via the header 
 ```bash
-$ curl -k -H "Authorization: Bearer $TOKEN" 'http://localhost:9990/w/another/namespace/?val=127.0.0.1'
-{
-  "count": 1,
-  "message": "ok"
-}
-
+Authorization: Basic $CREDENTIALS
 ```
 
-TLS
-===
+# TLS
 
 TLS can be configured by adding the following to `application.conf`
 
@@ -159,18 +101,6 @@ ktor{
   }
 }
 ```
-
-REST Endpoints
-==============
-	/w: write (GET)
-	/wb: write in bulk mode (POST)
-	/r: read (GET)
-	/rs: read with statistics (GET)
-	/rb: read in bulk mode (POST)
-	/rbs: read with statistics in bulk mode (POST)
-	/d: delete (GET)
-	/c: configure (GET)
-	/i: info (GET)
 
 Logging
 =======
