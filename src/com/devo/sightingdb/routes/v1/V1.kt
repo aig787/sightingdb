@@ -1,20 +1,6 @@
-package com.devo.sightingdb.routes
+package com.devo.sightingdb.routes.v1
 
-import com.devo.sightingdb.data.BulkSightingRequest
-import com.devo.sightingdb.data.BulkSightings
-import com.devo.sightingdb.data.BulkSightingsResponse
-import com.devo.sightingdb.data.DeletedResponse
-import com.devo.sightingdb.data.MessageResponse
-import com.devo.sightingdb.data.NamespaceMessage
-import com.devo.sightingdb.data.NamespaceResponse
-import com.devo.sightingdb.data.ReadBulkResponse
-import com.devo.sightingdb.data.ReadResponse
 import com.devo.sightingdb.data.SightingKey
-import com.devo.sightingdb.data.SightingKeyMessage
-import com.devo.sightingdb.data.SightingKeyResponse
-import com.devo.sightingdb.data.SightingResponse
-import com.devo.sightingdb.data.StringMessage
-import com.devo.sightingdb.data.WroteOk
 import com.devo.sightingdb.getNamespace
 import com.devo.sightingdb.getVal
 import com.devo.sightingdb.storage.Connector
@@ -33,6 +19,102 @@ import java.time.ZoneOffset
 const val NOT_FOUND_STRING = "Not found"
 
 private val log = KotlinLogging.logger { }
+
+fun Route.v1(connector: Connector) {
+    configure()
+    info()
+    read(connector)
+    write(connector)
+    delete(connector)
+}
+
+fun Route.read(connector: Connector) {
+    get("/rs/{namespace...}") {
+        val response = read(connector, getNamespace(call), getVal(call))
+        call.respond(response.status, response.value)
+    }
+    get("/r/{namespace...}") {
+        when (val response = read(connector, getNamespace(call), getVal(call))) {
+            is SightingResponse -> call.respond(response.status, response.value.copy(serializeWithStats = false))
+            is BulkSightingsResponse -> call.respond(
+                response.status,
+                response.value.copy(items = response.value.items.map { it.copy(serializeWithStats = false) })
+            )
+            else -> call.respond(response.status, response.value)
+        }
+    }
+    post("/rb") {
+        when (val response = readBulk(connector, call.receive())) {
+            is BulkSightingsResponse -> call.respond(
+                response.status,
+                response.value.copy(items = response.value.items.map { it.copy(serializeWithStats = false) })
+            )
+            else -> call.respond(response.status, response.value)
+        }
+    }
+    post("/rbs") {
+        val response = readBulk(connector, call.receive())
+        call.respond(response.status, response.value)
+    }
+}
+
+fun Route.write(connector: Connector) {
+    get("/w/{namespace...}") {
+        val namespace = getNamespace(call)
+        val value = getVal(call)
+        when {
+            namespace == null -> call.respond(HttpStatusCode.BadRequest, StringMessage("Must specify namespace"))
+            value == null -> call.respond(HttpStatusCode.BadRequest, StringMessage("Must specify val"))
+            else -> {
+                log.info { "Observed $namespace $value" }
+                connector.observe(namespace, value)
+                call.respond(HttpStatusCode.Created, CountOk())
+            }
+        }
+    }
+    post("/wb") {
+        val toWrite = call.receive<BulkSightingRequest>()
+        toWrite.items.forEach {
+            log.info { "Observed ${it.namespace} ${it.value}" }
+            when (it.timestamp) {
+                null -> connector.observe(it.namespace, it.value)
+                else -> connector.observe(
+                    it.namespace,
+                    it.value,
+                    OffsetDateTime.ofInstant(Instant.ofEpochMilli(it.timestamp), ZoneOffset.UTC)
+                )
+            }
+        }
+        call.respond(HttpStatusCode.Created, CountOk(toWrite.items.size))
+    }
+}
+
+fun Route.delete(connector: Connector) {
+    get("/d/{namespace...}") {
+        val response = delete(connector, getNamespace(call), getVal(call))
+        call.respond(response.status, response.value)
+    }
+    post("/db") {
+        val toDelete = call.receive<BulkSightingRequest>()
+        toDelete.items.forEach {
+            connector.delete(it.namespace, it.value)
+            log.info { "Deleted ${SightingKey(it.namespace, it.value)}" }
+        }
+        call.respond(HttpStatusCode.OK, CountOk(toDelete.items.size))
+    }
+}
+
+fun Route.configure() {
+    get("/c") {
+        call.respond(HttpStatusCode.NotImplemented)
+    }
+}
+
+fun Route.info() {
+    get("/info") {
+        call.respond(HttpStatusCode.NotImplemented)
+    }
+}
 
 private fun readValue(connector: Connector, namespace: String, value: String): ReadResponse {
     log.info { "Reading value $namespace $value" }
@@ -116,63 +198,5 @@ private fun delete(connector: Connector, namespace: String?, value: String?): De
                 else -> deleteValue(connector, namespace, value)
             }
         }
-    }
-}
-
-fun Route.readWrite(connector: Connector) {
-    get("/w/{namespace...}") {
-        val namespace = getNamespace(call)
-        val value = getVal(call)
-        when {
-            namespace == null -> call.respond(HttpStatusCode.BadRequest, StringMessage("Must specify namespace"))
-            value == null -> call.respond(HttpStatusCode.BadRequest, StringMessage("Must specify val"))
-            else -> {
-                log.info { "Observed $namespace $value" }
-                connector.observe(namespace, value)
-                call.respond(HttpStatusCode.Created, WroteOk())
-            }
-        }
-    }
-    post("/wb") {
-        val toWrite = call.receive<BulkSightingRequest>()
-        toWrite.items.forEach {
-            log.info { "Observed ${it.namespace} ${it.value}" }
-            when (it.timestamp) {
-                null -> connector.observe(it.namespace, it.value)
-                else -> connector.observe(
-                    it.namespace,
-                    it.value,
-                    OffsetDateTime.ofInstant(Instant.ofEpochMilli(it.timestamp), ZoneOffset.UTC)
-                )
-            }
-        }
-        call.respond(HttpStatusCode.Created, WroteOk(toWrite.items.size))
-    }
-    get("/rs/{namespace...}") {
-        val response = read(connector, getNamespace(call), getVal(call))
-        call.respond(response.status, response.value)
-    }
-    get("/r/{namespace...}") {
-        when (val response = read(connector, getNamespace(call), getVal(call))) {
-            is SightingResponse -> call.respond(response.status, response.value.copy(serializeWithStats = false))
-            else -> call.respond(response.status, response.value)
-        }
-    }
-    post("/rb") {
-        when (val response = readBulk(connector, call.receive())) {
-            is BulkSightingsResponse -> call.respond(
-                response.status,
-                response.value.copy(items = response.value.items.map { it.copy(serializeWithStats = false) })
-            )
-            else -> call.respond(response.status, response.value)
-        }
-    }
-    post("/rbs") {
-        val response = readBulk(connector, call.receive())
-        call.respond(response.status, response.value)
-    }
-    get("/d/{namespace...}") {
-        val response = delete(connector, getNamespace(call), getVal(call))
-        call.respond(response.status, response.value)
     }
 }

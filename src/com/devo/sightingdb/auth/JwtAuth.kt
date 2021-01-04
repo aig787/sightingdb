@@ -11,6 +11,7 @@ import io.ktor.application.install
 import io.ktor.auth.Authentication
 import io.ktor.auth.Principal
 import io.ktor.auth.UserPasswordCredential
+import io.ktor.auth.authentication
 import io.ktor.auth.jwt.JWTPrincipal
 import io.ktor.auth.jwt.jwt
 import io.ktor.http.HttpStatusCode
@@ -21,28 +22,6 @@ import io.ktor.routing.post
 import java.time.Duration
 import java.time.Instant
 import java.util.Date
-
-class JwtConfig(secret: String, private val issuer: String, val validity: Duration) {
-
-    data class User(val name: String, val password: String) : Principal
-
-    data class Token(val token: String)
-
-    private val algorithm: Algorithm = Algorithm.HMAC256(secret)
-    val verifier: JWTVerifier = JWT.require(algorithm).withIssuer(issuer).build()
-
-    private fun getExpiration() = Date.from(Instant.now().plusMillis(validity.toMillis()))
-
-    fun makeToken(user: User): Token = Token(
-        JWT.create()
-            .withSubject("Authentication")
-            .withIssuer(issuer)
-            .withClaim("user", user.name)
-            .withClaim("password", user.password)
-            .withExpiresAt(getExpiration())
-            .sign(algorithm)
-    )
-}
 
 val Application.jwtConfig get() = JwtConfig(jwtSecret, jwtIssuer, jwtValidity)
 
@@ -61,8 +40,8 @@ val Application.jwtSecret get() = environment.config.property("ktor.jwt.secret")
 val Application.jwtIssuer get() = environment.config.property("ktor.jwt.issuer").getString()
 
 fun Application.jwtAuth() {
-    install(Authentication) {
-        jwt {
+    authentication {
+        jwt(name = "jwt") {
             verifier(jwtConfig.verifier)
             realm = jwtIssuer
             validate {
@@ -93,4 +72,26 @@ fun Route.jwtLogin() {
             call.respond(HttpStatusCode.BadRequest)
         }
     }
+}
+
+class JwtConfig(secret: String, private val issuer: String, private val validity: Duration) {
+
+    data class User(val name: String, val password: String) : Principal
+
+    data class Token(val token: String)
+
+    private val algorithm: Algorithm = Algorithm.HMAC256(secret)
+    val verifier: JWTVerifier = JWT.require(algorithm).withIssuer(issuer).build()
+
+    private fun getExpiration() = Date.from(Instant.now().plusMillis(validity.toMillis()))
+
+    fun makeToken(user: User): Token = Token(
+        JWT.create()
+            .withSubject("Authentication")
+            .withIssuer(issuer)
+            .withClaim("user", user.name)
+            .withClaim("password", user.password)
+            .withExpiresAt(getExpiration())
+            .sign(algorithm)
+    )
 }

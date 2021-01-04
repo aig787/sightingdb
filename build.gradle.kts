@@ -5,7 +5,7 @@ plugins {
     kotlin("jvm") version Versions.kotlin
     id("application")
     id("org.sonarqube") version "3.0"
-    id("io.gitlab.arturbosch.detekt") version "1.12.0"
+    id("io.gitlab.arturbosch.detekt") version Versions.detekt
     id("org.jetbrains.dokka") version Versions.dokka
     id("io.wusa.semver-git-plugin") version "2.3.0"
     id("com.adarshr.test-logger") version "2.1.1"
@@ -86,6 +86,7 @@ tasks.compileTestKotlin {
 }
 
 tasks.detekt {
+    config.from("detekt-config.yml")
     jvmTarget = targetVersion.toString()
 }
 
@@ -133,5 +134,6 @@ dependencies {
     }
     testImplementation("org.junit.jupiter:junit-jupiter-api:${Versions.junit}")
     testImplementation("org.awaitility:awaitility:${Versions.awaitility}")
+
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:${Versions.junit}")
 }

@@ -1,5 +1,7 @@
-package com.devo.sightingdb.data
+package com.devo.sightingdb.routes.v1
 
+import com.devo.sightingdb.data.Sighting
+import com.devo.sightingdb.data.SightingKey
 import io.ktor.http.HttpStatusCode
 
 interface Message {
@@ -10,7 +12,7 @@ data class StringMessage(override val message: String) : Message
 data class SightingKeyMessage(override val message: String, val sighting: SightingKey) : Message
 data class NamespaceMessage(override val message: String, val namespace: String) : Message
 
-data class WroteOk(val count: Int = 1) {
+data class CountOk(val count: Int = 1) {
     val message = "ok"
 }
 

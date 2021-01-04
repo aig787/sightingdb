@@ -1,9 +1,9 @@
 package com.devo.sightingdb
 
-import com.devo.sightingdb.data.BulkSightingRequest
 import com.devo.sightingdb.data.Sighting
-import com.devo.sightingdb.data.SightingRequest
-import com.devo.sightingdb.routes.readWrite
+import com.devo.sightingdb.routes.v1.BulkSightingRequest
+import com.devo.sightingdb.routes.v1.SightingRequest
+import com.devo.sightingdb.routes.v1.v1
 import com.devo.sightingdb.storage.Connector
 import com.devo.sightingdb.storage.InMemoryConnector
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
@@ -36,7 +36,7 @@ class ApplicationTest {
     @Test
     fun testWriteNew() = withTestApplication({
         install()
-        routing { readWrite(connector) }
+        routing { v1(connector) }
     }) {
         with(handleRequest(HttpMethod.Get, "/w/a/namespace/?val=abcd")) {
             assertEquals(HttpStatusCode.Created, response.status())
@@ -48,7 +48,7 @@ class ApplicationTest {
     @Test
     fun testWriteExisting() = withTestApplication({
         install()
-        routing { readWrite(connector) }
+        routing { v1(connector) }
     }) {
         val namespace = "/a/namespace"
         val value = "abcd"
@@ -63,7 +63,7 @@ class ApplicationTest {
     @Test
     fun testWriteBulk() = withTestApplication({
         install()
-        routing { readWrite(connector) }
+        routing { v1(connector) }
     }) {
         val items = (0 until 50).map { SightingRequest("/namespace/$it", it.toString()) }
         val call = handleRequest(HttpMethod.Post, "/wb") {
@@ -81,7 +81,7 @@ class ApplicationTest {
     @Test
     fun testReadNew() = withTestApplication({
         install()
-        routing { readWrite(connector) }
+        routing { v1(connector) }
     }) {
         with(handleRequest(HttpMethod.Get, "/r/a/namespace/?val=abcd")) {
             assertEquals(HttpStatusCode.NotFound, response.status())
@@ -91,7 +91,7 @@ class ApplicationTest {
     @Test
     fun testReadExisting() = withTestApplication({
         install()
-        routing { readWrite(connector) }
+        routing { v1(connector) }
     }) {
         val namespace = "/a/namespace"
         val value = "abcd"
@@ -107,7 +107,7 @@ class ApplicationTest {
     @Test
     fun testReadNamespace() = withTestApplication({
         install()
-        routing { readWrite(connector) }
+        routing { v1(connector) }
     }) {
         val namespace = "/a/namespace"
         val items = (0 until 10).map {
@@ -125,7 +125,7 @@ class ApplicationTest {
     @Test
     fun testReadBulkExisting() = withTestApplication({
         install()
-        routing { readWrite(connector) }
+        routing { v1(connector) }
     }) {
         val items = (0 until 50).map {
             SightingRequest("/namespace/$it", it.toString()).also { req ->
@@ -148,7 +148,7 @@ class ApplicationTest {
     @Test
     fun testReadStatsNew() = withTestApplication({
         install()
-        routing { readWrite(connector) }
+        routing { v1(connector) }
     }) {
         with(handleRequest(HttpMethod.Get, "/rs/a/namespace/?val=abcd")) {
             assertEquals(HttpStatusCode.NotFound, response.status())
@@ -158,7 +158,7 @@ class ApplicationTest {
     @Test
     fun testReadStatsExisting() = withTestApplication({
         install()
-        routing { readWrite(connector) }
+        routing { v1(connector) }
     }) {
         val namespace = "/a/namespace"
         val value = "abcd"
@@ -174,7 +174,7 @@ class ApplicationTest {
     @Test
     fun testReadBulkStatsExisting() = withTestApplication({
         install()
-        routing { readWrite(connector) }
+        routing { v1(connector) }
     }) {
         val items = (0 until 50).map {
             SightingRequest("/namespace/$it", it.toString()).also { req ->

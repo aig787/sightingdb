@@ -23,10 +23,11 @@ abstract class Connector {
     abstract fun getNamespaceConfig(namespace: String, key: String): String?
     abstract fun putNamespaceConfig(namespace: String, key: String, value: String)
 
+    protected abstract fun read(namespace: String, value: String): Sighting?
+    protected abstract fun readNamespace(namespace: String): List<Sighting>?
+    protected abstract fun deleteNamespace(namespace: String): Boolean
+
     internal abstract fun write(namespace: String, sighting: Sighting)
-    internal abstract fun read(namespace: String, value: String): Sighting?
-    internal abstract fun readNamespace(namespace: String): List<Sighting>?
-    internal abstract fun deleteNamespace(namespace: String): Boolean
 
     abstract fun delete(namespace: String, value: String): Boolean
 

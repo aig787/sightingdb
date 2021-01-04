@@ -1,4 +1,4 @@
-package com.devo.sightingdb.data
+package com.devo.sightingdb.routes.v1
 
 import com.fasterxml.jackson.annotation.JsonInclude
 
