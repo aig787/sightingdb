@@ -32,14 +32,14 @@ semver {
     branches {
         branch {
             regex = "master"
-            incrementer = "MINOR_VERSION_INCREMENTER"
+            incrementer = "MINOR_INCREMENTER"
             formatter = org.gradle.api.Transformer<Any, io.wusa.Info> { info ->
                 "${info.version.major}.${info.version.minor}.${info.version.patch}"
             }
         }
         branch {
             regex = "develop"
-            incrementer = "PATCH_VERSION_INCREMENTER"
+            incrementer = "PATCH_INCREMENTER"
             formatter = defaultVersionFormatter
         }
         branch {
