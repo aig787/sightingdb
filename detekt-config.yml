@@ -1,0 +1,3 @@
+complexity:
+  TooManyFunctions:
+    thresholdInFiles: 20

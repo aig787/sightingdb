@@ -1,4 +1,8 @@
-<p align="center"><img src="doc/sightingdb-logo3_128.png"/></p>
+SightingDB
+========
+
+<div style="text-align:center"><img alt="sighting logo" src="doc/sightingdb-logo3_128.png"/></div>
+<br>
 
 SightingDB is a database designed for Sightings, a technique to count items. This is helpful for Threat Intelligence as Sightings allow
 to enrich indicators or attributes with Observations, rather than Reputation.
@@ -11,59 +15,99 @@ However, it will also provide the following features:
 * Get the consensus for each item (how many times the same value exists in another namespace)
 
 SightingDB is designed to scale writing and reading.
+# Building
 
-Building
-========
+1) Make sure JDK 11 or greater is installed
+2) Run `./gradlew distTar`
 
-1) Make sure you have Rust and Cargo installed
-2) Run ''make''
+# Running
 
-Running
+To run from the source directory run `./gradlew run`. The database can now be accessed at localhost:9990.
+
+# Routes
+
+[V1 Routes](doc/V1.md)
+
+
+# Authentication
+
+## JWT
+
+[JWT](https://jwt.io/) authentication can be configured by adding the following to `application.conf`
+
+```hocon
+ktor {
+  jwt {
+    issuer = "sightingdb"
+    secret = "$SECRET"
+    validitySeconds = "3600"
+    users = [
+      { name = "$USER", password = "$PASSWORD" }
+      ...
+    ]
+  }
+}
+```
+
+A JWT token can be obtained via the `/login` route 
+
+Request:
+```json
+{"name": "$USERNAME", "password": ",$PASSWORD"}
+```
+Response:
+```json
+{"token": "$TOKEN"}
+```
+
+This token can then be used to make authenticated requests via the header
+```bash
+Authorization: Bearer $TOKEN
+``` 
+
+## Basic
+
+Basic authentication can be configured by adding the following to `application.conf`
+```hocon
+ktor {
+  basicAuth.users = [
+    { name = "$USER", password = "$PASSWORD" }
+  ]
+}
+```
+
+Authenticated requests can then be made via the header 
+```bash
+Authorization: Basic $CREDENTIALS
+```
+
+# TLS
+
+TLS can be configured by adding the following to `application.conf`
+
+```hocon
+ktor{
+  deployment {
+    sslPort = 9999
+    port = null # Optionally disable plaintext listener
+  }
+  security {
+    ssl {
+      keyStore = "$KEYSTORE_PATH"
+      keyAlias = "$ALIAS"
+      keyStorePassword = "$KEYSTORE_PASSWORD"
+      privateKeyPassword = "$KEY_PASSWORD"
+    }
+  }
+}
+```
+
+Logging
 =======
 
-To run from the source directory:
+Application logs are written to `/var/log/devo/sightingdb/app.log`. Every sighting is written to `/var/log/devo/sightingdb/commit.log` as a commit log.
 
-1. Generate a certificate: `cd etc; mkdir ssl; cd ssl; openssl req -new -newkey rsa:2048 -days 365 -nodes -x509 -keyout key.pem -out cert.pem; cd ../..`
-2. `ln -s etc/ssl ssl`
-3. `ln -s etc/sighting-daemon.ini sighting-daemon.ini`
-4. Start the Sighting DB: ./target/debug/sighting-daemon
+Running Tests
+=============
 
-Client Demo
-===========
-
-Writing
--------
-	$ curl -k https://localhost:9999/w/my/namespace/?val=127.0.0.1
-	{"message":"ok"}	
-	$ curl -k https://localhost:9999/w/another/namespace/?val=127.0.0.1
-	{"message":"ok"}
-	$ curl -k https://localhost:9999/w/another/namespace/?val=127.0.0.1
-	{"message":"ok"}
-
-Reading
--------
-	$ curl -k https://localhost:9999/r/my/namespace/?val=$(b64 127.0.0.1)
-	{"value":"127.0.0.1","first_seen":1566624658,"last_seen":1566624658,"count":1,"tag":"","ttl":0,"consensus":2}
-	
-	$ curl -k https://localhost:9999/r/another/namespace/?val=127.0.0.1
-	{"value":"127.0.0.1","first_seen":1566624686,"last_seen":1566624689,"count":2,"tag":"","ttl":0,"consensus":2}
-
-	$ curl -k https://localhost:9999/rs/my/namespace/?val=127.0.0.1
-	{"value":"127.0.0.1","first_seen":1593719022,"last_seen":1593721509,"count":10,"tags":"","ttl":0,"stats":{"1593716400":2,"1593720000":8},"consensus":1}
-	
-Authentication
---------------
-	$ curl -H 'Authorization: changeme' -k https://localhost:9999/w/my/namespace/?val=127.0.0.1
-	{"message":"ok"}	
-
-REST Endpoints
-==============
-	/w: write (GET)
-	/wb: write in bulk mode (POST)
-	/r: read (GET)
-	/rs: read with statistics (GET)
-	/rb: read in bulk mode (POST)
-	/rbs: read with statistics in bulk mode (POST)
-	/d: delete (GET)
-	/c: configure (GET)
-	/i: info (GET)
+Tests can be run including performance tests with `./gradlew test` or without with `NOPERF=1 ./gradlew test`

@@ -1,4 +1,8 @@
-/target
-log/
-etc/ssl
-ssl
+.gradle/
+build/
+*.iml
+*.ipr
+*.iws
+resources/application.conf
+scripts/keys
+.idea/

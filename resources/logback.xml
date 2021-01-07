@@ -1,0 +1,82 @@
+<!-- turn debug=true on for logback-test.xml to help debug logging configurations. -->
+<!-- configuration taken from https://www.stubbornjava.com/posts/logging-in-java-with-slf4j-and-logback -->
+<configuration debug="false">
+
+    <!--
+    We prefer logging to console instead of a File. Its very easy
+    to pipe console output to a file and most organizations already
+    have a log rotation setup in place. It can also be faster to use this
+    approach vs using a FileAppender directly
+    -->
+    <appender class="ch.qos.logback.core.ConsoleAppender" name="STDOUT">
+        <!-- encoders are  by default assigned the type
+             ch.qos.logback.classic.encoder.PatternLayoutEncoder -->
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} | %-5level| %logger{36} | %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>/var/log/devo/sightingdb/app.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <!-- rollover daily -->
+            <fileNamePattern>app-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <!-- each file should be at most 100MB, keep 60 days worth of history, but at most 20GB -->
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>5</maxHistory>
+            <totalSizeCap>100MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} | %-5level| %logger{36} | %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="COMMIT-FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>/var/log/devo/sightingdb/commit.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <!-- rollover daily -->
+            <fileNamePattern>commit-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <!-- each file should be at most 100MB, keep 60 days worth of history, but at most 20GB -->
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>5</maxHistory>
+            <totalSizeCap>100MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} | %-5level| %logger{36} | %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!--
+    Async appenders can drastically speed up logging as well as your application's
+    response time but with some potential drawbacks. Read more at.
+    https://logback.qos.ch/manual/appenders.html#AsyncAppender
+    http://blog.takipi.com/how-to-instantly-improve-your-java-logging-with-7-logback-tweaks/
+
+    Always be sure to test different configurations for yourself. Every
+    application has different requirements.
+     -->
+    <appender class="ch.qos.logback.classic.AsyncAppender" name="ASYNC">
+        <appender-ref ref="STDOUT"/>
+        <queueSize>1000</queueSize>
+    </appender>
+
+    <!--
+    We prefer a default setting of WARN and turn on logging explicitly for
+    any packages we care about. INFO is also a good choice. Going lower than INFO
+    may log sensitive data such as passwords or api tokens via HTTP or networking
+    libraries. Remember these defaults impact third party libraries as well.
+
+    Often times the cost of logging is overlooked. Try a simple benchmark of
+    logging in a tight loop a few million iterations vs not logging and see the difference.
+    There are a few ways you can change logging levels on the fly in a running app.
+    This could be a better solution than over logging.
+    -->
+    <logger name="com.devo" level="INFO"/>
+    <logger name="commit-log" level="DEBUG" additivity="false">
+        <appender-ref ref="COMMIT-FILE"/>
+    </logger>
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+        <appender-ref ref="FILE"/>
+    </root>
+</configuration>
