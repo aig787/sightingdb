@@ -128,7 +128,7 @@ dependencies {
     implementation("com.google.guava:guava:${Versions.guava}")
     implementation("org.mapdb:mapdb:3.0.8")
 
-    testImplementation("com.natpryce:hamkrest:1.7.0.3")
+    testImplementation("com.natpryce:hamkrest:1.8.0.1")
     testImplementation("io.ktor:ktor-server-test-host:${Versions.ktor}") {
         exclude(group = "junit", module = "junit")
     }
