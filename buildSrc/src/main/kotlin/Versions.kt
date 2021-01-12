@@ -8,4 +8,5 @@ object Versions {
     const val guava = "30.0-jre"
     const val junit = "5.3.1"
     const val awaitility = "4.0.2"
+    const val jackson = "2.12.1"
 }
