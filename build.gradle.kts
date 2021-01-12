@@ -122,7 +122,7 @@ dependencies {
     implementation("io.ktor:ktor-auth-jwt:${Versions.ktor}")
     implementation("io.ktor:ktor-jackson:${Versions.ktor}")
     implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.12.1")
-    implementation("com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.12.0")
+    implementation("com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.12.1")
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:2.12.0")
     implementation("org.rocksdb:rocksdbjni:${Versions.rocksDB}")
     implementation("com.google.guava:guava:${Versions.guava}")
