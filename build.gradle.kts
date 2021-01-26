@@ -4,7 +4,7 @@ plugins {
     application
     kotlin("jvm") version Versions.kotlin
     id("application")
-    id("org.sonarqube") version "3.0"
+    id("org.sonarqube") version "3.1.1"
     id("io.gitlab.arturbosch.detekt") version Versions.detekt
     id("org.jetbrains.dokka") version Versions.dokka
     id("io.wusa.semver-git-plugin") version "2.3.7"
