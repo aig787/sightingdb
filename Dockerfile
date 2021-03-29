@@ -1,4 +1,4 @@
-FROM adoptopenjdk:15-jdk AS build
+FROM adoptopenjdk:16-jdk AS build
 
 RUN apt-get update && apt-get upgrade -y && apt-get install -y git tree
 
@@ -16,7 +16,7 @@ RUN ./gradlew distTar
 RUN ./gradlew :showVersion
 RUN mv build/distributions/sightingdb-$(./gradlew :showVersion -q -Prelease.quiet | cut -d' ' -f2).tar dist.tar
 
-FROM adoptopenjdk:15-jre
+FROM adoptopenjdk:16-jdk
 ENV CLASSPATH=""
 ENV JAVA_OPTS="-Dconfig.file=/opt/sightingdb/conf/application.conf"
 ENV SIGHTINGDB_OPTS=""
