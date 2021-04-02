@@ -8,7 +8,7 @@ plugins {
     id("io.gitlab.arturbosch.detekt") version Versions.detekt
     id("org.jetbrains.dokka") version Versions.dokka
     id("io.wusa.semver-git-plugin") version "2.3.7"
-    id("com.adarshr.test-logger") version "2.1.1"
+    id("com.adarshr.test-logger") version "3.0.0"
 }
 
 repositories {
