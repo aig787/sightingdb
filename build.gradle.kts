@@ -116,7 +116,7 @@ dependencies {
     implementation("io.ktor:ktor-server-netty:${Versions.ktor}")
 
     implementation("ch.qos.logback:logback-classic:${Versions.logback}")
-    implementation("io.github.microutils:kotlin-logging:2.0.4")
+    implementation("io.github.microutils:kotlin-logging:2.0.10")
     implementation("io.ktor:ktor-network-tls-certificates:${Versions.ktor}")
     implementation("io.ktor:ktor-auth:${Versions.ktor}")
     implementation("io.ktor:ktor-auth-jwt:${Versions.ktor}")
